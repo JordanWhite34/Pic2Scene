@@ -1,6 +1,7 @@
 import subprocess
 import shutil
 import open3d as o3d
+import numpy as np
 from pathlib import Path
 
 class run_colmap:
@@ -16,6 +17,8 @@ class run_colmap:
 
         self.sparse_dir = self.output_dir / "sparse"
         self.dense_dir = self.output_dir / "dense"
+
+        self.pcd = o3d.io.read_point_cloud(f"{self.dense_dir}/fused.ply")
 
     
     def run(self, clean_output=True):
@@ -77,11 +80,36 @@ class run_colmap:
 
     def remove_noise(self, nb_neighbors=20, std_ratio=2.0):
         """
-        Removes noise from fused.ply point cloud.
+        Removes noise from fused.ply point cloud, returns cleaned point cloud and indices of kept points.
         """
 
-        pcd = o3d.io.read_point_cloud(f"{self.dense_dir}/fused.ply")
-        cl, ind = pcd.remove_statistical_outlier(nb_neighbors, std_ratio)   # cl = cleaned point cloud, ind = indices of kept points
+        cl, ind = self.pcd.remove_statistical_outlier(nb_neighbors, std_ratio)   # cl = cleaned point cloud, ind = indices of kept points
         return cl, ind
+    
+    def adaptive_subsample(self, voxel_size=0.05, detail_size=0.02):
+        """
+        Simple implementation to subsample point cloud, keeping detail in complex areas while simplifying flat / uniform areas.
+        """
+        # compute normals
+        self.pcd.estimate_normals()
+
+        # identify high-detail areas
+        normals = np.asarray(self.pcd.normals)
+        curvature = np.var(normals, axis=1)
+        high_detail = curvature > np.percentile(curvature, 75)
+
+        # separate high and low detail points
+        points = np.asarray(self.pcd.points)
+        high_detail_pcd = o3d.geometry.PointCloud()
+        high_detail_pcd.points = o3d.utility.Vector3dVector(points[high_detail])
+        low_detail_pcd = o3d.geometry.PointCloud()
+        low_detail_pcd.points = o3d.utility.Vector3dVector(points[~high_detail])
+
+        # downsample
+        high_detail_down = high_detail_pcd.voxel_down_sample(detail_size)
+        low_detail_down = low_detail_pcd.voxel_down_sample(voxel_size)
+
+        # combine
+        return high_detail_down + low_detail_down
 
         
