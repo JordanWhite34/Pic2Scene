@@ -1,5 +1,6 @@
 import subprocess
 import shutil
+import open3d as o3d
 from pathlib import Path
 
 class run_colmap:
@@ -8,7 +9,7 @@ class run_colmap:
         class used to run colmap on an image directory easily. make sure COLMAP is set to the location of your COLMAP download.
         If COLMAP is on your PATH, you can replace all instances of self.COLMAP with "colmap". This implementation assumes COLMAP is NOT on PATH.
         """
-        
+
         self.COLMAP = COLMAP
         self.image_dir = Path(image_dir)
         self.output_dir = Path(output_dir)
@@ -72,6 +73,15 @@ class run_colmap:
             "--workspace_path", self.dense_dir,
             "--output_path", f"{self.dense_dir}/fused.ply"
         ])
+    
 
+    def remove_noise(self, nb_neighbors=20, std_ratio=2.0):
+        """
+        Removes noise from fused.ply point cloud.
+        """
+
+        pcd = o3d.io.read_point_cloud(f"{self.dense_dir}/fused.ply")
+        cl, ind = pcd.remove_statistical_outlier(nb_neighbors, std_ratio)   # cl = cleaned point cloud, ind = indices of kept points
+        return cl, ind
 
         
