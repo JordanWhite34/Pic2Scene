@@ -86,6 +86,7 @@ class run_colmap:
         cl, ind = self.pcd.remove_statistical_outlier(nb_neighbors, std_ratio)   # cl = cleaned point cloud, ind = indices of kept points
         return cl, ind
     
+    
     def adaptive_subsample(self, voxel_size=0.05, detail_size=0.02):
         """
         Simple implementation to subsample point cloud, keeping detail in complex areas while simplifying flat / uniform areas.
@@ -111,5 +112,26 @@ class run_colmap:
 
         # combine
         return high_detail_down + low_detail_down
+    
+
+    def extract_features(self, radius=0.1):
+        # compute normals
+        self.pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
+
+        # compute local features
+        fpfh = o3d.pipelines.registration.compute_fpfh_feature(self.pcd, o3d.geometry.KDTreeSearchParamHybrid(radius=radius*5, max_nn=100))
+
+        # compute global features
+        points = np.asarray(self.pcd.points)
+        centroid = np.mean(points, axis=0)
+        distances = np.linalg.norm(points - centroid, axis=1)
+
+        features = {
+            'fpfh': np.asarray(fpfh.data).T,
+            'distance_to_centroid': distances,
+            'height': points[:, 2] # assuming Z is up
+        }
+
+        return features
 
         
