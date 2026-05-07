@@ -18,7 +18,10 @@ class run_colmap:
         self.sparse_dir = self.output_dir / "sparse"
         self.dense_dir = self.output_dir / "dense"
 
-        self.pcd = o3d.io.read_point_cloud(f"{self.dense_dir}/fused.ply")
+        self.pcd = o3d.geometry.PointCloud()
+        fused_path = self.dense_dir / "fused.ply"
+        if fused_path.exists():
+            self.pcd = o3d.io.read_point_cloud(str(fused_path))
 
     
     def run(self, clean_output=True):
@@ -42,7 +45,9 @@ class run_colmap:
         subprocess.run([
             self.COLMAP, "feature_extractor",
             "--database_path", self.output_dir / "database.db",
-            "--image_path", self.image_dir
+            "--image_path", self.image_dir,
+            "--ImageReader.single_camera", "1",
+            "--SiftExtraction.max_num_features", "16384"
         ])
 
         # Feature matching
@@ -63,19 +68,31 @@ class run_colmap:
             self.COLMAP, "image_undistorter",
             "--image_path", self.image_dir,
             "--input_path", f"{self.sparse_dir}/0",
-            "--output_path", self.dense_dir
+            "--output_path", self.dense_dir,
+            "--max_image_size", "2000"
         ])
 
         subprocess.run([
             self.COLMAP, "patch_match_stereo",
-            "--workspace_path", self.dense_dir
+            "--workspace_path", self.dense_dir,
+            "--PatchMatchStereo.max_image_size", "2000",
+            "--PatchMatchStereo.num_threads", "4"
         ])
 
         subprocess.run([
             self.COLMAP, "stereo_fusion",
             "--workspace_path", self.dense_dir,
-            "--output_path", f"{self.dense_dir}/fused.ply"
+            "--input_type", "photometric",
+            "--output_path", f"{self.dense_dir}/fused.ply",
+            "--StereoFusion.min_num_pixels", "3",
+            "--StereoFusion.max_reproj_error", "4",
+            "--StereoFusion.max_depth_error", "0.03",
+            "--StereoFusion.max_normal_error", "20",
+            "--StereoFusion.max_image_size", "2000",
+            "--StereoFusion.num_threads", "4"
         ])
+
+        self.pcd = o3d.io.read_point_cloud(str(self.dense_dir / "fused.ply"))
     
 
     def remove_noise(self, nb_neighbors=20, std_ratio=2.0):
@@ -115,6 +132,9 @@ class run_colmap:
     
 
     def extract_features(self, radius=0.1):
+        """
+        Computes Fast Point Feature Histograms, distance to centroid, and height for each point in the point cloud.
+        """
         # compute normals
         self.pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
 
@@ -133,5 +153,22 @@ class run_colmap:
         }
 
         return features
+    
 
+    def point_cloud_to_mesh(self, depth=12):
+        """
+        Create triangle mesh from the point cloud using Poisson surface reconstruction.
+        """
+        # estimate normals if not present
+        if not self.pcd.has_normals():
+            self.pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        
+        # poisson surface reconstruction
+        mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(self.pcd, depth=depth)
+
+        # remove low-density vertices
+        vertices_to_remove = densities < np.quantile(densities, 0.1)
+        mesh.remove_vertices_by_mask(vertices_to_remove)
+
+        return mesh
         

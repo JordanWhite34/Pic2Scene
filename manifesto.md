@@ -22,3 +22,7 @@ The desire of this project is to eventually get to the point where I can feed in
   - 3D Multimodal Python Viewer
 
 All this stuff is accessible between pages 587 - 610 in the textbook, **aka chapter 17**
+
+
+5/5/2026
+I added everything up to converting point cloud to mesh. I had some quality issues when taking images with my iPhone but they were mitigated by manually setting "--ImageReader.single_camera", "1" (this tells COLMAP there is only 1 camera so all intrinsics were saved and it didnt try to recompute camera settings for each image). Next I will work on Data Modeling.
