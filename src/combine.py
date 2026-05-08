@@ -172,3 +172,27 @@ class run_colmap:
 
         return mesh
         
+    
+    def voxelize(self, voxel_size):
+        """
+        Discretizes the 3D space with voxels.
+        """
+        # compute bounds
+        points = np.asarray(self.pcd.points)
+        min_bound = np.min(points, axis=0)
+        max_bound = np.max(points, axis=0)
+
+        # compute voxel indices
+        voxel_indices = np.floor((points - min_bound) / voxel_size).astype(int)
+        
+        # compute voxel grid
+        grid_size = np.ceil((max_bound - min_bound) / voxel_size).astype(int)
+        voxel_grid = np.zeros(grid_size, dtype=bool)
+
+        # fill voxels
+        voxel_grid[voxel_indices[:, 0], voxel_indices[:, 1], voxel_indices[:, 2]] = True
+
+        # make it with open3d
+        voxel_grid_o3d = o3d.geometry.VoxelGrid.create_from_point_cloud(self.pcd, voxel_size)
+
+        return voxel_grid_o3d
