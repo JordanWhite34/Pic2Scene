@@ -3,6 +3,7 @@ import shutil
 import open3d as o3d
 import numpy as np
 from pathlib import Path
+from sklearn.neighbors import KDTree
 
 class run_colmap:
     def __init__(self, image_dir: str, output_dir: str, COLMAP=r"C:\Tools\COLMAP\COLMAP.bat"):
@@ -196,3 +197,13 @@ class run_colmap:
         voxel_grid_o3d = o3d.geometry.VoxelGrid.create_from_point_cloud(self.pcd, voxel_size)
 
         return voxel_grid_o3d
+    
+    
+    def radius_search(self, points, query_point, radius):
+        """
+        Uses a k-d tree for efficient radius search.
+        Best for only chunks of a dataset when it has many points.
+        """
+        tree = KDTree(points)
+        indices = tree.query_radius([query_point], r=radius)
+        return points[indices]

@@ -26,3 +26,6 @@ All this stuff is accessible between pages 587 - 610 in the textbook, **aka chap
 
 5/5/2026
 I added everything up to converting point cloud to mesh. I had some quality issues when taking images with my iPhone but they were mitigated by manually setting "--ImageReader.single_camera", "1" (this tells COLMAP there is only 1 camera so all intrinsics were saved and it didnt try to recompute camera settings for each image). Next I will work on Data Modeling.
+
+5/7/2026
+I have decided the next thing I want to work on is to look into how to get rid of more noise
