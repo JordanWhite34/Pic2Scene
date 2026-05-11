@@ -207,3 +207,32 @@ class run_colmap:
         tree = KDTree(points)
         indices = tree.query_radius([query_point], r=radius)
         return points[indices]
+    
+
+    def dbscan_3d(self, points, eps, min_points):
+        """
+        k-d tree for efficient neighbor search.
+        """
+        tree = KDTree(points)
+        clusters = []
+        visited = set()
+
+        def expand_cluster(point_idx, neighbors):
+            cluster = [point_idx]
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    new_neighbors = tree.query_ball_point(points[neighbor], eps)
+                    if len(new_neighbors) >= min_points:
+                        cluster.extend(expand_cluster(neighbor, new_neighbors))
+            return cluster
+
+        for i in range(len(points)):
+            if i not in visited:
+                neighbors = tree.query_ball_point(points[i], eps)
+                if len(neighbors) >= min_points:
+                    visited.add(i)
+                    cluster = expand_cluster(i, neighbors)
+                    clusters.append(cluster)
+        
+        return clusters
